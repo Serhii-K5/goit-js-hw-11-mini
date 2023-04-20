@@ -58,32 +58,6 @@ endlessScroll.addEventListener('click', () => {
   }
 });
 
-// -- функція виведення повідомлень
-function messageOutput() {
-  const inputTxt = searchInput.value.trim();
-  if (inputTxt !== '') {
-    getPhoto(inputTxt)
-      .then(photos => {
-        if (photos.totalHits > 0) {
-          
-          galleryCreation(photos.hits);
-          
-          loadMoreBtn.style.display = Math.ceil(photos.totalHits/ perPage) > page ? 'block' : 'none';
-
-          Notiflix.Notify.success(`Hooray! We found ${photos.totalHits} images.`);
-
-          lightbox.refresh();
-
-        } else {
-          Notiflix.Notify.failure('Sorry, there are no images matching your search query. Please try again.');
-        }
-      })
-      .catch(error => {
-        console.error(error);
-      });
-  }  
-}
-
 // --- прослуховування натискання кнопки пошуку на панелі "SEARCH BAR"
 searchBtn.addEventListener('click', evt => {
   evt.preventDefault();
@@ -134,7 +108,7 @@ function galleryCreation(photos) {
   );
 };
 
-let coefficient;  // для визначення напрямку скрола
+let coefficient;  // для визначення напрямку скрола і швидкості (при збільшенні значення швидкість зменшується)
 
 // --- прослуховування кліку миші для визначення напрямку скрола
 // якщо у вехній половині екрану по горизонталі - скрол "вгору", якщо в нижній - "вниз"
@@ -145,28 +119,35 @@ window.addEventListener('click', evt => {
     return;
   }
 
-  // перевірка наявності єлементів в галереї
+  // перевірка наявності eлементів в галереї
   if (galleryDiv.childElementCount < 1) {
     return;
   }
 
   // задає напрям скрола
-  coefficient =
-    evt.pageY < window.pageYOffset + window.innerHeight / 2 ? -2 : 2;
+  coefficient = evt.pageY < window.pageYOffset + window.innerHeight / 2 ? -50 : 50;
 
+  smoothScroll();
+});
+
+let counter = 0;  // лічильник (визначає довжину прокрутки)
+function smoothScroll() {
+  if (counter++ > 80) {
+    oldPageYOffset = window.pageYOffset;
+    return counter = 0;
+  }
+  
   const { height: cardHeight } = document
     .querySelector('.gallery')
     .firstElementChild.getBoundingClientRect();
 
-  // запуск плавного скролу
+  oldPageYOffset = window.pageYOffset;
+
   window.scrollBy({
-    top: cardHeight * coefficient,
-    behavior: 'smooth',
+    top: cardHeight / coefficient,
+    // behavior: 'smooth',
   });
-
-  oldPageYOffset = window.pageYOffset; // запис положення позиції скрола
-});
-
+}
 
 // --- прослуховування скрола
 window.addEventListener('scroll', () => {
@@ -186,15 +167,54 @@ window.addEventListener('scroll', () => {
     if (endlessScroll.getAttribute('class') === 'js-on') {    // якщо включено нескінченний скрол
       nextPage();   // виклик функції переходу на наступну сторінку пагінації
     }
+  } else {
+    if (oldPageYOffset === window.pageYOffset) {
+      return;
+    }    
+  
+    // перевірка наявності єлементів в галереї
+    if (galleryDiv.childElementCount < 1) {
+      return;
+    }
+
+    coefficient = oldPageYOffset > window.pageYOffset ? -50 : 50; 
+
+    smoothScroll();    
   }
 });
 
 // -- функція автоматичного переходу на наступну сторінку при пагінації
 function nextPage() {
-  if (loadMoreBtn.style.display !== 'none') {             // якщо кнопка присутня (виступає індикатором кінця сторінки)
+  if (loadMoreBtn.style.display !== 'none') {       // якщо кнопка присутня (виступає індикатором кінця сторінки)
     page++;
     loadMoreBtn.style.display = 'none';
     messageOutput();    
   }
   oldPageYOffset = window.pageYOffset;  // запис нового положення позиції скрола
+}
+
+// -- функція виведення повідомлень
+function messageOutput() {
+  const inputTxt = searchInput.value.trim();
+  if (inputTxt !== '') {
+    getPhoto(inputTxt)
+      .then(photos => {
+        if (photos.totalHits > 0) {
+          
+          galleryCreation(photos.hits);
+          
+          loadMoreBtn.style.display = Math.ceil(photos.totalHits / perPage) > page ? 'block' : 'none';
+          
+          Notiflix.Notify.success(`Hooray! We found ${photos.totalHits} images.`);
+
+          lightbox.refresh();
+
+        } else {
+          Notiflix.Notify.failure('Sorry, there are no images matching your search query. Please try again.');
+        }
+      })
+      .catch(error => {
+        console.error(error);
+      });
+  }  
 }
